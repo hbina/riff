@@ -1,6 +1,5 @@
-use std::fmt::{Debug, Display, Formatter};
-use std::io::{Error, Read, Seek};
-use std::rc::Rc;
+use std::fmt::{Debug, Formatter};
+use std::io::Error;
 
 pub enum RiffError {
     IoError(std::io::Error),

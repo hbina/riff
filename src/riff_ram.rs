@@ -9,7 +9,7 @@ pub enum ChunkContents<'a> {
 
 impl<'a> From<Chunk<'a>> for ChunkContents<'a> {
     fn from(chunk: Chunk<'a>) -> Self {
-        match chunk.id() {
+        match chunk.id().as_str() {
             RIFF_ID | LIST_ID => {
                 let child_id = chunk.get_child_id();
                 let child_contents: Vec<ChunkContents<'a>> = chunk
