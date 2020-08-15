@@ -182,33 +182,3 @@ impl Riff {
         Ok(Riff { data })
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn chunkid_from_str() {
-        assert_eq!(ChunkId::new("RIFF").unwrap(), RIFF_ID);
-        assert_eq!(ChunkId::new("LIST").unwrap(), LIST_ID);
-        assert_eq!(ChunkId::new("seqt").unwrap(), SEQT_ID);
-
-        assert_eq!(
-            ChunkId::new("123 ").unwrap(),
-            ChunkId {
-                value: [0x31, 0x32, 0x33, 0x20]
-            }
-        );
-
-        assert_eq!(ChunkId::new("123"), None);
-        assert_eq!(ChunkId::new("12345"), None);
-    }
-
-    #[test]
-    fn chunkid_to_str() {
-        assert_eq!(RIFF_ID.as_str(), "RIFF");
-        assert_eq!(LIST_ID.as_str(), "LIST");
-        assert_eq!(SEQT_ID.as_str(), "seqt");
-        assert_eq!(ChunkId::new("123 ").unwrap().as_str(), "123 ");
-    }
-}
