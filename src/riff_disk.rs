@@ -1,25 +1,26 @@
-use std::fmt::{Debug, Display, Formatter};
-use std::io::{Error, Read, Seek};
+use std::fmt::Debug;
+use std::io::{Read, Seek};
 use std::rc::Rc;
 
-use crate::chunk_id::{ChunkId, LIST_ID, RIFF_ID, SEQT_ID};
+use crate::chunk_id::{ChunkIdDisk, LIST_ID, RIFF_ID, SEQT_ID};
 
 #[derive(PartialEq, Debug)]
-pub enum ChunkContents {
-    RawData(ChunkId, Vec<u8>),
-    Children(ChunkId, ChunkId, Vec<ChunkContents>),
-    ChildrenNoType(ChunkId, Vec<ChunkContents>),
+pub enum ChunkContents<R>
+    where R: Read + Seek {
+    RawData(ChunkIdDisk<R>, Vec<u8>),
+    Children(ChunkIdDisk<R>, ChunkIdDisk<R>, Vec<ChunkContents<R>>),
+    ChildrenNoType(ChunkIdDisk<R>, Vec<ChunkContents<R>>),
 }
 
-impl<R> std::convert::TryFrom<Chunk<R>> for ChunkContents
-where
-    R: Read + Seek,
+impl<R> std::convert::TryFrom<Chunk<R>> for ChunkContents<R>
+    where
+        R: Read + Seek,
 {
     type Error = std::io::Error;
 
     fn try_from(mut chunk: Chunk<R>) -> Result<Self, std::io::Error> {
-        let chunk_id = chunk.id()?;
-        match chunk_id {
+        let mut chunk_id = chunk.id()?;
+        match chunk_id.as_string()?.as_str() {
             RIFF_ID | LIST_ID => {
                 let child_id = chunk.get_child_id()?;
                 let child_contents = chunk
@@ -45,8 +46,8 @@ where
 
 #[derive(Debug, PartialEq)]
 pub struct Chunk<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     pos: u32,
     payload_len: u32,
@@ -54,16 +55,11 @@ where
 }
 
 impl<R> Chunk<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
-    pub fn id(&mut self) -> std::io::Result<ChunkId> {
-        let pos = self.pos as u64;
-        let mut id_buff: [u8; 4] = [0; 4];
-        let reader = Rc::get_mut(&mut self.reader).unwrap();
-        reader.seek(std::io::SeekFrom::Start(pos))?;
-        reader.read_exact(&mut id_buff)?;
-        Ok(ChunkId { value: id_buff })
+    pub fn id(&mut self) -> std::io::Result<ChunkIdDisk<R>> {
+        Ok(ChunkIdDisk::new(self.reader.clone(), self.pos))
     }
 
     pub fn len(&self) -> u32 {
@@ -91,13 +87,8 @@ where
         })
     }
 
-    pub fn get_child_id(&mut self) -> std::io::Result<ChunkId> {
-        let pos = self.pos as u64;
-        let mut buff: [u8; 4] = [0; 4];
-        let reader = Rc::get_mut(&mut self.reader).unwrap();
-        reader.seek(std::io::SeekFrom::Start(pos + 8))?;
-        reader.read_exact(&mut buff)?;
-        Ok(ChunkId { value: buff })
+    pub fn get_child_id(&mut self) -> std::io::Result<ChunkIdDisk<R>> {
+        Ok(ChunkIdDisk::new(self.reader.clone(), self.pos + 8))
     }
 
     pub fn get_child_chunk_typed(&mut self) -> std::io::Result<Chunk<R>> {
@@ -147,8 +138,8 @@ where
 
 #[derive(Debug)]
 pub struct ChunkIterType<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     payload_cursor: u32,
     payload_end: u32,
@@ -156,8 +147,8 @@ where
 }
 
 impl<R> Iterator for ChunkIterType<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     type Item = std::io::Result<Chunk<R>>;
 
@@ -184,8 +175,8 @@ where
 
 #[derive(Debug)]
 pub struct ChunkIterNoType<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     payload_cursor: u32,
     payload_end: u32,
@@ -193,8 +184,8 @@ where
 }
 
 impl<R> Iterator for ChunkIterNoType<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     type Item = std::io::Result<Chunk<R>>;
 
@@ -222,16 +213,16 @@ where
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Riff<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     reader: Rc<R>,
 }
 
 #[allow(dead_code)]
 impl<R> Riff<R>
-where
-    R: Read + Seek,
+    where
+        R: Read + Seek,
 {
     pub fn get_chunk(&mut self) -> std::io::Result<Chunk<R>> {
         Chunk::from_reader(self.reader.clone(), 0)
