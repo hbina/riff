@@ -11,3 +11,10 @@ edition = "2018"
 [badges]
 travis-ci = { repository = "frabert/riff" }
 codecov = { repository = "frabert/riff" }
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
