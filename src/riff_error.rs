@@ -1,19 +1,12 @@
-use std::fmt::{Debug, Formatter};
-use std::io::Error;
-
+#[derive(Debug)]
 pub enum RiffError {
-    IoError(std::io::Error),
-    LibError(&'static str),
+    Io(std::io::Error),
+    ByteLessThan8(usize),
+    PayloadLenMismatch(usize, u32),
 }
 
 impl From<std::io::Error> for RiffError {
-    fn from(v: Error) -> Self {
-        RiffError::IoError(v)
-    }
-}
-
-impl Debug for RiffError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
+    fn from(v: std::io::Error) -> Self {
+        RiffError::Io(v)
     }
 }

@@ -2,12 +2,21 @@ use std::io::{Read, Seek};
 use std::rc::Rc;
 
 pub const RIFF_ID: &str = "RIFF";
-
 pub const LIST_ID: &str = "LIST";
-
 pub const SEQT_ID: &str = "SEQT";
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Debug)]
+pub struct ChunkType {
+    pub value: [u8; 4],
+}
+
+impl ChunkType {
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.value).unwrap()
+    }
+}
+
+#[derive(Debug)]
 pub struct ChunkId {
     pub value: [u8; 4],
 }
@@ -16,29 +25,22 @@ impl ChunkId {
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(&self.value).unwrap()
     }
-
-    pub fn new(s: &str) -> Option<ChunkId> {
-        let bytes = s.as_bytes();
-        if bytes.len() != 4 {
-            None
-        } else {
-            let mut a: [u8; 4] = Default::default();
-            a.copy_from_slice(&bytes[..]);
-            Some(ChunkId { value: a })
-        }
-    }
 }
 
 /// Lazy version of `ChunkId`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct ChunkIdDisk<R>
-    where R: Read + Seek {
+where
+    R: Read + Seek,
+{
     pos: u32,
     reader: Rc<R>,
 }
 
 impl<R> ChunkIdDisk<R>
-    where R: Read + Seek {
+where
+    R: Read + Seek,
+{
     pub fn as_string(&mut self) -> std::io::Result<String> {
         let pos = self.pos as u64;
         let mut str_buff: [u8; 4] = [0; 4];
@@ -51,8 +53,9 @@ impl<R> ChunkIdDisk<R>
     }
 
     pub fn new(reader: Rc<R>, pos: u32) -> ChunkIdDisk<R> {
-        ChunkIdDisk { pos, reader: reader.clone() }
+        ChunkIdDisk {
+            pos,
+            reader: reader.clone(),
+        }
     }
 }
-
-

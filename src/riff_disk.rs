@@ -6,15 +6,17 @@ use crate::chunk_id::{ChunkIdDisk, LIST_ID, RIFF_ID, SEQT_ID};
 
 #[derive(PartialEq, Debug)]
 pub enum ChunkContents<R>
-    where R: Read + Seek {
+where
+    R: Read + Seek,
+{
     RawData(ChunkIdDisk<R>, Vec<u8>),
     Children(ChunkIdDisk<R>, ChunkIdDisk<R>, Vec<ChunkContents<R>>),
     ChildrenNoType(ChunkIdDisk<R>, Vec<ChunkContents<R>>),
 }
 
 impl<R> std::convert::TryFrom<Chunk<R>> for ChunkContents<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     type Error = std::io::Error;
 
@@ -46,8 +48,8 @@ impl<R> std::convert::TryFrom<Chunk<R>> for ChunkContents<R>
 
 #[derive(Debug, PartialEq)]
 pub struct Chunk<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     pos: u32,
     payload_len: u32,
@@ -55,8 +57,8 @@ pub struct Chunk<R>
 }
 
 impl<R> Chunk<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     pub fn id(&mut self) -> std::io::Result<ChunkIdDisk<R>> {
         Ok(ChunkIdDisk::new(self.reader.clone(), self.pos))
@@ -138,8 +140,8 @@ impl<R> Chunk<R>
 
 #[derive(Debug)]
 pub struct ChunkIterType<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     payload_cursor: u32,
     payload_end: u32,
@@ -147,8 +149,8 @@ pub struct ChunkIterType<R>
 }
 
 impl<R> Iterator for ChunkIterType<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     type Item = std::io::Result<Chunk<R>>;
 
@@ -175,8 +177,8 @@ impl<R> Iterator for ChunkIterType<R>
 
 #[derive(Debug)]
 pub struct ChunkIterNoType<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     payload_cursor: u32,
     payload_end: u32,
@@ -184,8 +186,8 @@ pub struct ChunkIterNoType<R>
 }
 
 impl<R> Iterator for ChunkIterNoType<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     type Item = std::io::Result<Chunk<R>>;
 
@@ -213,16 +215,16 @@ impl<R> Iterator for ChunkIterNoType<R>
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Riff<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     reader: Rc<R>,
 }
 
 #[allow(dead_code)]
 impl<R> Riff<R>
-    where
-        R: Read + Seek,
+where
+    R: Read + Seek,
 {
     pub fn get_chunk(&mut self) -> std::io::Result<Chunk<R>> {
         Chunk::from_reader(self.reader.clone(), 0)
