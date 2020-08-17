@@ -4,13 +4,11 @@ use std::convert::TryFrom;
 
 #[test]
 fn test_minimal() {
-    let file =
-        riff::lazy::riff::Riff::from_file(std::fs::File::open("test_assets/set_1.riff").unwrap())
-            .unwrap();
+    let file = riff::lazy::riff::Riff::from_path("test_assets/set_1.riff").unwrap();
     let chunk_root = riff::lazy::riff::Chunk::try_from(file).unwrap();
     assert_eq!(chunk_root.payload_len(), 14);
     assert_eq!(chunk_root.id().as_str(), "RIFF");
-    assert_eq!(chunk_root.chunk_type().as_str(), "smpl");
+    assert_eq!(chunk_root.chunk_type().as_ref().unwrap().as_str(), "smpl");
     let expected_content = vec![vec![255]];
     assert_eq!(
         chunk_root.iter().fold(0, |acc, _| acc + 1),
@@ -27,13 +25,11 @@ fn test_minimal() {
 
 #[test]
 fn test_minimal_2() {
-    let file =
-        riff::lazy::riff::Riff::from_file(std::fs::File::open("test_assets/set_2.riff").unwrap())
-            .unwrap();
+    let file = riff::lazy::riff::Riff::from_path("test_assets/set_2.riff").unwrap();
     let chunk_root = riff::lazy::riff::Chunk::try_from(file).unwrap();
     assert_eq!(chunk_root.payload_len(), 24);
     assert_eq!(chunk_root.id().as_str(), "RIFF");
-    assert_eq!(chunk_root.chunk_type().as_str(), "smpl");
+    assert_eq!(chunk_root.chunk_type().as_ref().unwrap().as_str(), "smpl");
     let expected_content = vec![("tst1", vec![255]), ("tst2", vec![238])];
     assert_eq!(
         chunk_root.iter().fold(0, |acc, _| acc + 1),
@@ -51,20 +47,18 @@ fn test_minimal_2() {
 
 #[test]
 fn test_test() {
-    let file =
-        riff::lazy::riff::Riff::from_file(std::fs::File::open("test_assets/set_3.riff").unwrap())
-            .unwrap();
+    let file = riff::lazy::riff::Riff::from_path("test_assets/set_3.riff").unwrap();
     let chunk_root = riff::lazy::riff::Chunk::try_from(file).unwrap();
     {
         assert_eq!(chunk_root.payload_len(), 100);
         assert_eq!(chunk_root.id().as_str(), riff::constants::RIFF_ID);
-        assert_eq!(chunk_root.chunk_type().as_str(), "smpl");
+        assert_eq!(chunk_root.chunk_type().as_ref().unwrap().as_str(), "smpl");
         assert_eq!(chunk_root.iter().fold(0, |acc, _| acc + 1), 2);
     }
     {
         let list_1 = chunk_root.iter().next().unwrap();
         assert_eq!(list_1.id().as_str(), riff::constants::LIST_ID);
-        assert_eq!(list_1.chunk_type().as_str(), "tst1");
+        assert_eq!(list_1.chunk_type().as_ref().unwrap().as_str(), "tst1");
         assert_eq!(list_1.iter().fold(0, |acc, _| acc + 1), 2);
         {
             let test = list_1.iter().next().unwrap();
@@ -97,20 +91,18 @@ fn test_test() {
 
 #[test]
 fn test_test_2() {
-    let file =
-        riff::lazy::riff::Riff::from_file(std::fs::File::open("test_assets/set_4.riff").unwrap())
-            .unwrap();
+    let file = riff::lazy::riff::Riff::from_path("test_assets/set_4.riff").unwrap();
     let chunk_root = riff::lazy::riff::Chunk::try_from(file).unwrap();
     {
         assert_eq!(chunk_root.payload_len(), 102);
         assert_eq!(chunk_root.id().as_str(), riff::constants::RIFF_ID);
-        assert_eq!(chunk_root.chunk_type().as_str(), "smpl");
+        assert_eq!(chunk_root.chunk_type().as_ref().unwrap().as_str(), "smpl");
         assert_eq!(chunk_root.iter().fold(0, |acc, _| acc + 1), 2);
     }
     {
         let list_1 = chunk_root.iter().next().unwrap();
         assert_eq!(list_1.id().as_str(), riff::constants::LIST_ID);
-        assert_eq!(list_1.chunk_type().as_str(), "tst1");
+        assert_eq!(list_1.chunk_type().as_ref().unwrap().as_str(), "tst1");
         assert_eq!(list_1.iter().fold(0, |acc, _| acc + 1), 2);
         {
             let test = list_1.iter().next().unwrap();
