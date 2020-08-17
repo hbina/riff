@@ -2,7 +2,10 @@ use std::fmt::Debug;
 use std::io::{Read, Seek};
 use std::rc::Rc;
 
-use crate::chunk_id::{ChunkIdDisk, LIST_ID, RIFF_ID, SEQT_ID};
+use crate::{
+    constants::{LIST_ID, RIFF_ID, SEQT_ID},
+    lazy::chunk_id::ChunkIdDisk,
+};
 
 #[derive(PartialEq, Debug)]
 pub enum ChunkContents<R>

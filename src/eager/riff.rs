@@ -1,38 +1,50 @@
-use crate::chunk_id::{ChunkId, ChunkType, LIST_ID, RIFF_ID, SEQT_ID};
+use crate::{
+    constants::{LIST_ID, RIFF_ID, SEQT_ID},
+    eager::{chunk_id::ChunkId, chunk_type::ChunkType},
+};
 
+/// Represents the data that a `Chunk` contains.
+/// There are 3 possible values that any `Chunk` may hold.
 #[derive(Debug)]
-pub enum ChunkContents<'a> {
+pub enum ChunkContent<'a> {
+    /// Represents a `Chunk` that contains raw data as `&[u8]`.
     RawData(ChunkId, &'a [u8]),
-    Children(ChunkId, ChunkType, Vec<ChunkContents<'a>>),
-    ChildrenNoType(ChunkId, Vec<ChunkContents<'a>>),
+    /// Represents a `Chunk` where the payload contains `ChunkType` identifier and a list of `ChunkContent`s.
+    Children(ChunkId, ChunkType, Vec<ChunkContent<'a>>),
+    /// Represents a `Chunk` where the payload only contain a list of `ChunkContent`s.
+    ChildrenNoType(ChunkId, Vec<ChunkContent<'a>>),
 }
 
-impl<'a> From<Chunk<'a>> for ChunkContents<'a> {
+/// Since `Chunk` is an opaque type. The only way to obtain the `Chunk`'s contents is through this trait.
+impl<'a> From<Chunk<'a>> for ChunkContent<'a> {
     fn from(chunk: Chunk<'a>) -> Self {
         match chunk.id().as_str() {
             RIFF_ID | LIST_ID => {
                 let chunk_type = chunk.get_chunk_type();
-                let child_contents: Vec<ChunkContents<'a>> = chunk
+                let child_contents: Vec<ChunkContent<'a>> = chunk
                     .iter()
-                    .map(|child| ChunkContents::from(child))
+                    .map(|child| ChunkContent::from(child))
                     .collect();
-                ChunkContents::Children(chunk.id(), chunk_type, child_contents)
+                ChunkContent::Children(chunk.id(), chunk_type, child_contents)
             }
             SEQT_ID => {
                 let child_contents = chunk
                     .iter()
-                    .map(|child| ChunkContents::from(child))
+                    .map(|child| ChunkContent::from(child))
                     .collect();
-                ChunkContents::ChildrenNoType(chunk.id(), child_contents)
+                ChunkContent::ChildrenNoType(chunk.id(), child_contents)
             }
             _ => {
                 let contents = chunk.get_raw_child();
-                ChunkContents::RawData(chunk.id(), contents)
+                ChunkContent::RawData(chunk.id(), contents)
             }
         }
     }
 }
 
+/// Represents a chunk inside a RIFF file that have been created eagerly.
+/// To create a lazy version, please see the `Chunk` created by `RiffDisk`.
+/// Note that this is an opaque type, to obtain its content, one must convert it into a `ChunkContent`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Chunk<'a> {
     pos: u32,
@@ -92,6 +104,7 @@ impl<'a> Chunk<'a> {
     }
 }
 
+/// An iterator over the children of a `Chunk`.
 #[derive(Debug)]
 pub struct ChunkIter<'a> {
     cursor: u32,
@@ -113,6 +126,7 @@ impl<'a> Iterator for ChunkIter<'a> {
     }
 }
 
+/// An eager representation of a RIFF file.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Riff {

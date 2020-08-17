@@ -1,4 +1,4 @@
-pub mod chunk_id;
-pub mod riff_disk;
-pub mod riff_error;
-pub mod riff_ram;
+pub mod constants;
+pub mod eager;
+pub mod error;
+pub mod lazy;

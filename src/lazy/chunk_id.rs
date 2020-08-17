@@ -1,32 +1,6 @@
 use std::io::{Read, Seek};
 use std::rc::Rc;
 
-pub const RIFF_ID: &str = "RIFF";
-pub const LIST_ID: &str = "LIST";
-pub const SEQT_ID: &str = "SEQT";
-
-#[derive(Debug)]
-pub struct ChunkType {
-    pub value: [u8; 4],
-}
-
-impl ChunkType {
-    pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.value).unwrap()
-    }
-}
-
-#[derive(Debug)]
-pub struct ChunkId {
-    pub value: [u8; 4],
-}
-
-impl ChunkId {
-    pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.value).unwrap()
-    }
-}
-
 /// Lazy version of `ChunkId`.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct ChunkIdDisk<R>

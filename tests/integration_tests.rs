@@ -2,12 +2,15 @@ extern crate riff;
 
 #[test]
 fn test_minimal() {
-    let file = riff::riff_ram::Riff::from_file(std::path::PathBuf::from("test_assets/set_1.riff"))
-        .unwrap();
+    let file =
+        riff::eager::riff::Riff::from_file(std::path::PathBuf::from("test_assets/set_1.riff"))
+            .unwrap();
     assert_eq!(file.payload_len(), 14);
-    assert_eq!(riff::riff_ram::Chunk::from(&file).id().as_str(), "RIFF");
+    assert_eq!(riff::eager::riff::Chunk::from(&file).id().as_str(), "RIFF");
     assert_eq!(
-        riff::riff_ram::Chunk::from(&file).get_chunk_type().as_str(),
+        riff::eager::riff::Chunk::from(&file)
+            .get_chunk_type()
+            .as_str(),
         "smpl"
     );
     let expected_content = vec![vec![255]];
@@ -26,12 +29,15 @@ fn test_minimal() {
 
 #[test]
 fn test_minimal_2() {
-    let file = riff::riff_ram::Riff::from_file(std::path::PathBuf::from("test_assets/set_2.riff"))
-        .unwrap();
+    let file =
+        riff::eager::riff::Riff::from_file(std::path::PathBuf::from("test_assets/set_2.riff"))
+            .unwrap();
     assert_eq!(file.payload_len(), 24);
-    assert_eq!(riff::riff_ram::Chunk::from(&file).id().as_str(), "RIFF");
+    assert_eq!(riff::eager::riff::Chunk::from(&file).id().as_str(), "RIFF");
     assert_eq!(
-        riff::riff_ram::Chunk::from(&file).get_chunk_type().as_str(),
+        riff::eager::riff::Chunk::from(&file)
+            .get_chunk_type()
+            .as_str(),
         "smpl"
     );
     let expected_content = vec![("tst1", vec![255]), ("tst2", vec![238])];
@@ -51,23 +57,26 @@ fn test_minimal_2() {
 
 #[test]
 fn test_test() {
-    let file = riff::riff_ram::Riff::from_file(std::path::PathBuf::from("test_assets/set_3.riff"))
-        .unwrap();
+    let file =
+        riff::eager::riff::Riff::from_file(std::path::PathBuf::from("test_assets/set_3.riff"))
+            .unwrap();
     {
         assert_eq!(file.payload_len(), 100);
         assert_eq!(
-            riff::riff_ram::Chunk::from(&file).id().as_str(),
-            riff::chunk_id::RIFF_ID
+            riff::eager::riff::Chunk::from(&file).id().as_str(),
+            riff::constants::RIFF_ID
         );
         assert_eq!(
-            riff::riff_ram::Chunk::from(&file).get_chunk_type().as_str(),
+            riff::eager::riff::Chunk::from(&file)
+                .get_chunk_type()
+                .as_str(),
             "smpl"
         );
         assert_eq!(file.iter().fold(0, |acc, _| acc + 1), 2);
     }
     {
         let list_1 = file.iter().next().unwrap();
-        assert_eq!(list_1.id().as_str(), riff::chunk_id::LIST_ID);
+        assert_eq!(list_1.id().as_str(), riff::constants::LIST_ID);
         assert_eq!(list_1.get_chunk_type().as_str(), "tst1");
         assert_eq!(list_1.iter().fold(0, |acc, _| acc + 1), 2);
         {
@@ -95,23 +104,26 @@ fn test_test() {
 
 #[test]
 fn test_test_2() {
-    let file = riff::riff_ram::Riff::from_file(std::path::PathBuf::from("test_assets/set_4.riff"))
-        .unwrap();
+    let file =
+        riff::eager::riff::Riff::from_file(std::path::PathBuf::from("test_assets/set_4.riff"))
+            .unwrap();
     {
         assert_eq!(file.payload_len(), 102);
         assert_eq!(
-            riff::riff_ram::Chunk::from(&file).id().as_str(),
-            riff::chunk_id::RIFF_ID
+            riff::eager::riff::Chunk::from(&file).id().as_str(),
+            riff::constants::RIFF_ID
         );
         assert_eq!(
-            riff::riff_ram::Chunk::from(&file).get_chunk_type().as_str(),
+            riff::eager::riff::Chunk::from(&file)
+                .get_chunk_type()
+                .as_str(),
             "smpl"
         );
         assert_eq!(file.iter().fold(0, |acc, _| acc + 1), 2);
     }
     {
         let list_1 = file.iter().next().unwrap();
-        assert_eq!(list_1.id().as_str(), riff::chunk_id::LIST_ID);
+        assert_eq!(list_1.id().as_str(), riff::constants::LIST_ID);
         assert_eq!(list_1.get_chunk_type().as_str(), "tst1");
         assert_eq!(list_1.iter().fold(0, |acc, _| acc + 1), 2);
         {
