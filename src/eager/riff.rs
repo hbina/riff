@@ -1,44 +1,39 @@
-use crate::{
-    constants::{LIST_ID, RIFF_ID, SEQT_ID},
-    eager::{chunk_id::ChunkId, chunk_type::ChunkType},
-};
+use crate::constants::{LIST_ID, RIFF_ID, SEQT_ID};
 
-/// Represents the data that a `Chunk` contains.
-/// There are 3 possible values that any `Chunk` may hold.
+/// An eager representation of a RIFF file.
+#[allow(dead_code)]
 #[derive(Debug)]
-pub enum ChunkContent<'a> {
-    /// Represents a `Chunk` that contains raw data as `&[u8]`.
-    RawData(ChunkId, &'a [u8]),
-    /// Represents a `Chunk` where the payload contains `ChunkType` identifier and a list of `ChunkContent`s.
-    Children(ChunkId, ChunkType, Vec<ChunkContent<'a>>),
-    /// Represents a `Chunk` where the payload only contain a list of `ChunkContent`s.
-    ChildrenNoType(ChunkId, Vec<ChunkContent<'a>>),
+pub struct Riff {
+    data: Vec<u8>,
 }
 
-/// Since `Chunk` is an opaque type. The only way to obtain the `Chunk`'s contents is through this trait.
-impl<'a> From<Chunk<'a>> for ChunkContent<'a> {
-    fn from(chunk: Chunk<'a>) -> Self {
-        match chunk.id().as_str() {
-            RIFF_ID | LIST_ID => {
-                let chunk_type = chunk.get_chunk_type();
-                let child_contents: Vec<ChunkContent<'a>> = chunk
-                    .iter()
-                    .map(|child| ChunkContent::from(child))
-                    .collect();
-                ChunkContent::Children(chunk.id(), chunk_type, child_contents)
-            }
-            SEQT_ID => {
-                let child_contents = chunk
-                    .iter()
-                    .map(|child| ChunkContent::from(child))
-                    .collect();
-                ChunkContent::ChildrenNoType(chunk.id(), child_contents)
-            }
-            _ => {
-                let contents = chunk.get_raw_child();
-                ChunkContent::RawData(chunk.id(), contents)
-            }
-        }
+impl<'a> From<&'a Riff> for Chunk<'a> {
+    fn from(value: &'a Riff) -> Self {
+        Chunk::from_raw_u8(&value.data, 0)
+    }
+}
+
+#[allow(dead_code)]
+impl Riff {
+    pub fn id(&self) -> ChunkId {
+        let mut buff: [u8; 4] = [0; 4];
+        buff.copy_from_slice(&self.data[0..4]);
+        ChunkId { value: buff }
+    }
+
+    pub fn payload_len(&self) -> u32 {
+        let mut buff: [u8; 4] = [0; 4];
+        buff.copy_from_slice(&self.data[4..8]);
+        u32::from_le_bytes(buff)
+    }
+
+    pub fn iter(&self) -> ChunkIter {
+        Chunk::from_raw_u8(self.data.as_slice(), 0).iter()
+    }
+
+    pub fn from_file(path: std::path::PathBuf) -> std::io::Result<Self> {
+        let data = std::fs::read(path)?;
+        Ok(Riff { data })
     }
 }
 
@@ -81,10 +76,11 @@ impl<'a> Chunk<'a> {
     pub fn get_raw_child(&self) -> &'a [u8] {
         let pos = self.pos as usize;
         let payload_len = self.payload_len as usize;
-        match self.id().as_str() {
-            RIFF_ID | LIST_ID => &self.data[pos + 12..pos + 12 + payload_len],
-            _ => &self.data[pos + 8..pos + 8 + payload_len],
-        }
+        let offset = match self.id().as_str() {
+            RIFF_ID | LIST_ID => 12,
+            _ => 8,
+        };
+        &self.data[pos + offset..pos + offset + payload_len]
     }
 
     pub fn iter(&self) -> ChunkIter<'a> {
@@ -126,39 +122,64 @@ impl<'a> Iterator for ChunkIter<'a> {
     }
 }
 
-/// An eager representation of a RIFF file.
-#[allow(dead_code)]
 #[derive(Debug)]
-pub struct Riff {
-    data: Vec<u8>,
+pub struct ChunkType {
+    pub value: [u8; 4],
 }
 
-impl<'a> From<&'a Riff> for Chunk<'a> {
-    fn from(value: &'a Riff) -> Self {
-        Chunk::from_raw_u8(&value.data, 0)
+impl ChunkType {
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.value).unwrap()
     }
 }
 
-#[allow(dead_code)]
-impl Riff {
-    pub fn id(&self) -> ChunkId {
-        let mut buff: [u8; 4] = [0; 4];
-        buff.copy_from_slice(&self.data[0..4]);
-        ChunkId { value: buff }
-    }
+/// Represents the data that a `Chunk` contains.
+/// There are 3 possible values that any `Chunk` may hold.
+#[derive(Debug)]
+pub enum ChunkContent<'a> {
+    /// Represents a `Chunk` that contains raw data as `&[u8]`.
+    RawData(ChunkId, &'a [u8]),
+    /// Represents a `Chunk` where the payload contains `ChunkType` identifier and a list of `ChunkContent`s.
+    Children(ChunkId, ChunkType, Vec<ChunkContent<'a>>),
+    /// Represents a `Chunk` where the payload only contain a list of `ChunkContent`s.
+    ChildrenNoType(ChunkId, Vec<ChunkContent<'a>>),
+}
 
-    pub fn payload_len(&self) -> u32 {
-        let mut buff: [u8; 4] = [0; 4];
-        buff.copy_from_slice(&self.data[4..8]);
-        u32::from_le_bytes(buff)
+/// Since `Chunk` is an opaque type. The only way to obtain the `Chunk`'s contents is through this trait.
+impl<'a> From<Chunk<'a>> for ChunkContent<'a> {
+    fn from(chunk: Chunk<'a>) -> Self {
+        match chunk.id().as_str() {
+            RIFF_ID | LIST_ID => {
+                let chunk_type = chunk.get_chunk_type();
+                let child_contents = chunk
+                    .iter()
+                    .map(|child| ChunkContent::from(child))
+                    .collect();
+                ChunkContent::Children(chunk.id(), chunk_type, child_contents)
+            }
+            SEQT_ID => {
+                let child_contents = chunk
+                    .iter()
+                    .map(|child| ChunkContent::from(child))
+                    .collect();
+                ChunkContent::ChildrenNoType(chunk.id(), child_contents)
+            }
+            _ => {
+                let contents = chunk.get_raw_child();
+                ChunkContent::RawData(chunk.id(), contents)
+            }
+        }
     }
+}
 
-    pub fn iter(&self) -> ChunkIter {
-        Chunk::from_raw_u8(self.data.as_slice(), 0).iter()
-    }
+#[derive(Debug)]
+pub struct ChunkId {
+    pub value: [u8; 4],
+}
 
-    pub fn from_file(path: std::path::PathBuf) -> std::io::Result<Self> {
-        let data = std::fs::read(path)?;
-        Ok(Riff { data })
+impl ChunkId {
+    pub fn as_str(&self) -> &str {
+        // TODO: Propagate this error.
+        std::str::from_utf8(&self.value).unwrap()
     }
 }

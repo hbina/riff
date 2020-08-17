@@ -1,59 +1,86 @@
+use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::io::{Read, Seek};
 use std::rc::Rc;
 
-use crate::{
-    constants::{LIST_ID, RIFF_ID, SEQT_ID},
-    lazy::chunk_id::ChunkIdDisk,
-};
+use crate::constants::{LIST_ID, RIFF_ID, SEQT_ID};
 
-#[derive(PartialEq, Debug)]
-pub enum ChunkContents<R>
-where
-    R: Read + Seek,
-{
-    RawData(ChunkIdDisk<R>, Vec<u8>),
-    Children(ChunkIdDisk<R>, ChunkIdDisk<R>, Vec<ChunkContents<R>>),
-    ChildrenNoType(ChunkIdDisk<R>, Vec<ChunkContents<R>>),
+/// Lazy version of `ChunkId`.
+#[derive(Debug, Clone)]
+pub struct ChunkId {
+    data: [u8; 4],
 }
 
-impl<R> std::convert::TryFrom<Chunk<R>> for ChunkContents<R>
+impl ChunkId {
+    pub fn as_str(&self) -> &str {
+        // TODO: Handle this error.
+        std::str::from_utf8(&self.data).unwrap()
+    }
+}
+
+/// Lazy version of `ChunkType`.
+#[derive(Debug, Clone)]
+pub struct ChunkType {
+    data: [u8; 4],
+}
+
+impl ChunkType {
+    pub fn as_str(&self) -> &str {
+        // TODO: Handle this error.
+        std::str::from_utf8(&self.data).unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub enum ChunkContents {
+    RawData(ChunkId, Vec<u8>),
+    Children(ChunkId, ChunkType, Vec<ChunkContents>),
+    ChildrenNoType(ChunkId, Vec<ChunkContents>),
+}
+
+impl<'a, R> std::convert::TryFrom<Chunk<R>> for ChunkContents
 where
     R: Read + Seek,
 {
     type Error = std::io::Error;
 
-    fn try_from(mut chunk: Chunk<R>) -> Result<Self, std::io::Error> {
-        let mut chunk_id = chunk.id()?;
-        match chunk_id.as_string()?.as_str() {
+    fn try_from(chunk: Chunk<R>) -> Result<Self, std::io::Error> {
+        let chunk_id = chunk.id().clone();
+        match chunk_id.as_str() {
             RIFF_ID | LIST_ID => {
-                let child_id = chunk.get_child_id()?;
+                let chunk_type = chunk.chunk_type();
                 let child_contents = chunk
-                    .iter_type()
-                    .map(|child| ChunkContents::try_from(child?))
+                    .iter()
+                    .map(|child| ChunkContents::try_from(child))
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok(ChunkContents::Children(chunk_id, child_id, child_contents))
+                Ok(ChunkContents::Children(
+                    chunk_id,
+                    chunk_type.clone(),
+                    child_contents,
+                ))
             }
             SEQT_ID => {
                 let child_contents = chunk
-                    .iter_type()
-                    .map(|child| ChunkContents::try_from(child?))
+                    .iter()
+                    .map(|child| ChunkContents::try_from(child))
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(ChunkContents::ChildrenNoType(chunk_id, child_contents))
             }
             _ => {
-                let contents = chunk.get_raw_child_content_untyped()?;
-                Ok(ChunkContents::RawData(chunk_id, contents))
+                let contents = chunk.get_raw_child()?;
+                Ok(ChunkContents::RawData(chunk_id.clone(), contents))
             }
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Chunk<R>
 where
     R: Read + Seek,
 {
+    id: ChunkId,
+    chunk_type: ChunkType,
     pos: u32,
     payload_len: u32,
     reader: Rc<R>,
@@ -63,160 +90,100 @@ impl<R> Chunk<R>
 where
     R: Read + Seek,
 {
-    pub fn id(&mut self) -> std::io::Result<ChunkIdDisk<R>> {
-        Ok(ChunkIdDisk::new(self.reader.clone(), self.pos))
+    pub fn id(&self) -> &ChunkId {
+        &self.id
     }
 
-    pub fn len(&self) -> u32 {
+    pub fn payload_len(&self) -> u32 {
         self.payload_len
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.payload_len == 0
+    pub fn chunk_type(&self) -> &ChunkType {
+        &self.chunk_type
     }
 
-    pub fn offset(&self) -> u32 {
-        self.pos
-    }
-
-    pub fn from_reader(mut reader: Rc<R>, pos: u32) -> std::io::Result<Chunk<R>> {
+    fn from_reader(mut reader: Rc<R>, pos: u32) -> std::io::Result<Chunk<R>> {
         let pos = pos as u64;
-        let mut payload_buff: [u8; 4] = [0; 4];
         let inner_reader = Rc::get_mut(&mut reader).unwrap();
-        inner_reader.seek(std::io::SeekFrom::Start(pos + 4))?;
-        inner_reader.read_exact(&mut payload_buff)?;
+        let id_buff = Chunk::read_4_bytes(inner_reader, 0)?;
+        let payload_len_buff = Chunk::read_4_bytes(inner_reader, 4)?;
+        let chunk_type_buff = Chunk::read_4_bytes(inner_reader, 8)?;
         Ok(Chunk {
+            id: ChunkId { data: id_buff },
+            chunk_type: ChunkType {
+                data: chunk_type_buff,
+            },
             pos: pos as u32,
-            payload_len: u32::from_le_bytes(payload_buff),
-            reader,
+            payload_len: u32::from_le_bytes(payload_len_buff),
+            reader: reader.clone(),
         })
     }
 
-    pub fn get_child_id(&mut self) -> std::io::Result<ChunkIdDisk<R>> {
-        Ok(ChunkIdDisk::new(self.reader.clone(), self.pos + 8))
+    fn read_4_bytes(reader: &mut R, pos: u64) -> std::io::Result<[u8; 4]> {
+        let mut buffer: [u8; 4] = [0; 4];
+        reader.seek(std::io::SeekFrom::Start(pos))?;
+        reader.read_exact(&mut buffer)?;
+        Ok(buffer)
     }
 
-    pub fn get_child_chunk_typed(&mut self) -> std::io::Result<Chunk<R>> {
-        Ok(Chunk::from_reader(self.reader.clone(), self.pos + 12)?)
-    }
-
-    pub fn get_child_chunk_untyped(&mut self) -> std::io::Result<Chunk<R>> {
-        Ok(Chunk::from_reader(self.reader.clone(), self.pos + 8)?)
-    }
-
-    pub fn get_raw_child_content_typed(&mut self) -> std::io::Result<Vec<u8>> {
+    pub fn get_raw_child(&self) -> std::io::Result<Vec<u8>> {
         let pos = self.pos as u64;
         let payload_len = self.payload_len as usize;
-        let reader = Rc::get_mut(&mut self.reader).unwrap();
-        reader.seek(std::io::SeekFrom::Start(pos + 12))?;
+        let offset = self.offset_into_data() as u64;
         let mut result = vec![0; payload_len];
+        let mut rr = self.reader.clone();
+        let reader = Rc::get_mut(&mut rr).unwrap();
+        reader.seek(std::io::SeekFrom::Start(pos + offset))?;
         reader.read_exact(&mut result)?;
         Ok(result)
     }
 
-    pub fn get_raw_child_content_untyped(&mut self) -> std::io::Result<Vec<u8>> {
-        let pos = self.pos as u64;
-        let payload_len = self.payload_len as usize;
-        let reader = Rc::get_mut(&mut self.reader).unwrap();
-        reader.seek(std::io::SeekFrom::Start(pos + 8))?;
-        let mut result = vec![0; payload_len];
-        reader.read_exact(&mut result)?;
-        Ok(result)
-    }
-
-    pub fn iter_type(&self) -> ChunkIterType<R> {
-        ChunkIterType {
-            payload_cursor: self.pos + 12,
-            payload_end: self.pos + 12 + self.payload_len,
-            reader: self.reader.clone(),
+    fn offset_into_data(&self) -> usize {
+        match self.id().as_str() {
+            RIFF_ID | LIST_ID => 12,
+            _ => 8,
         }
     }
 
-    pub fn iter_notype(&self) -> ChunkIterNoType<R> {
-        ChunkIterNoType {
-            payload_cursor: self.pos + 8,
-            payload_end: self.pos + 8 + self.payload_len,
+    pub fn iter(&self) -> ChunkIter<R> {
+        let offset = self.offset_into_data() as u32;
+        ChunkIter {
+            cursor: self.pos + offset,
+            cursor_end: self.pos + offset + self.payload_len,
             reader: self.reader.clone(),
         }
     }
 }
 
 #[derive(Debug)]
-pub struct ChunkIterType<R>
+pub struct ChunkIter<R>
 where
     R: Read + Seek,
 {
-    payload_cursor: u32,
-    payload_end: u32,
+    cursor: u32,
+    cursor_end: u32,
     reader: Rc<R>,
 }
 
-impl<R> Iterator for ChunkIterType<R>
+impl<R> Iterator for ChunkIter<R>
 where
     R: Read + Seek,
 {
-    type Item = std::io::Result<Chunk<R>>;
+    type Item = Chunk<R>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.payload_cursor >= self.payload_end {
+        if self.cursor >= self.cursor_end {
             None
         } else {
-            let chunk = Chunk::from_reader(self.reader.clone(), self.payload_cursor);
-            match chunk {
-                Ok(chunk) => {
-                    self.payload_cursor = self.payload_cursor
-                        + 4
-                        + 4
-                        + 4
-                        + chunk.payload_len
-                        + (chunk.payload_len % 2);
-                    Some(Ok(chunk))
-                }
-                Err(err) => Some(Err(err)),
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ChunkIterNoType<R>
-where
-    R: Read + Seek,
-{
-    payload_cursor: u32,
-    payload_end: u32,
-    reader: Rc<R>,
-}
-
-impl<R> Iterator for ChunkIterNoType<R>
-where
-    R: Read + Seek,
-{
-    type Item = std::io::Result<Chunk<R>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.payload_cursor >= self.payload_end {
-            None
-        } else {
-            let chunk = Chunk::from_reader(self.reader.clone(), self.payload_cursor);
-            match chunk {
-                Ok(chunk) => {
-                    self.payload_cursor = self.payload_cursor
-                        + 4
-                        + 4
-                        + 4
-                        + chunk.payload_len
-                        + (chunk.payload_len % 2);
-                    Some(Ok(chunk))
-                }
-                Err(err) => Some(Err(err)),
-            }
+            let chunk = Chunk::from_reader(self.reader.clone(), self.cursor).unwrap();
+            self.cursor = self.cursor + 8 + chunk.payload_len + (chunk.payload_len % 2);
+            Some(chunk)
         }
     }
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Riff<R>
 where
     R: Read + Seek,
@@ -224,18 +191,25 @@ where
     reader: Rc<R>,
 }
 
+impl<R> TryFrom<Riff<R>> for Chunk<R>
+where
+    R: Seek + Read,
+{
+    type Error = std::io::Error;
+
+    fn try_from(value: Riff<R>) -> Result<Self, Self::Error> {
+        Chunk::from_reader(value.reader, 0)
+    }
+}
+
 #[allow(dead_code)]
 impl<R> Riff<R>
 where
     R: Read + Seek,
 {
-    pub fn get_chunk(&mut self) -> std::io::Result<Chunk<R>> {
-        Chunk::from_reader(self.reader.clone(), 0)
-    }
-
-    pub fn from_file(reader: R) -> Self {
-        Riff {
-            reader: std::rc::Rc::new(reader),
-        }
+    pub fn from_file(reader: R) -> std::io::Result<Self> {
+        Ok(Riff {
+            reader: Rc::new(reader),
+        })
     }
 }
