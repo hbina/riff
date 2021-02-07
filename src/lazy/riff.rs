@@ -1,17 +1,14 @@
-use std::{cell::RefCell, io::BufReader};
-use std::{fmt::Debug, fs::File, rc::Rc};
-use std::{
-    io::{Read, Seek},
-    path::Path,
-};
-
 use crate::{
     constants::{LIST_ID, RIFF_ID, SEQT_ID},
     error::RiffResult,
     FourCC,
 };
+use memmap::Mmap;
+use std::convert::TryInto;
+use std::path::Path;
+use std::{fmt::Debug, fs::File, rc::Rc};
 
-type RcReader = std::rc::Rc<RefCell<BufReader<std::fs::File>>>;
+type RcMmap = std::rc::Rc<Mmap>;
 
 /// Represents the possible data contained in a `ChunkDisk`.
 #[derive(Debug)]
@@ -22,7 +19,7 @@ pub enum ChunkDiskType {
 }
 
 impl ChunkDiskType {
-    pub fn from_chunk_disk(mut chunk: ChunkDisk) -> RiffResult<ChunkDiskType> {
+    pub fn from_chunk_disk(chunk: ChunkDisk) -> RiffResult<ChunkDiskType> {
         let chunk_id = chunk.id()?;
         let result = match chunk_id.as_bytes() {
             RIFF_ID | LIST_ID => ChunkDiskType::Children(chunk),
@@ -39,33 +36,33 @@ impl ChunkDiskType {
 /// Represents a lazy reader of a chunk in a RIFF file.
 #[derive(Debug)]
 pub struct ChunkDisk {
-    pos: u32,
-    reader: RcReader,
+    offset: u32,
+    reader: RcMmap,
 }
 
 impl ChunkDisk {
-    pub fn id(&mut self) -> RiffResult<FourCC> {
+    pub fn id(&self) -> RiffResult<FourCC> {
         let id = self.read_4_bytes_from_offset(0)?;
         let result = FourCC::new(&id);
         Ok(result)
     }
 
-    pub fn payload_len(&mut self) -> RiffResult<u32> {
+    pub fn payload_len(&self) -> RiffResult<u32> {
         let id = self.read_4_bytes_from_offset(4)?;
-        let result = u32::from_le_bytes(id);
+        let result = u32::from_le_bytes(*id);
         Ok(result)
     }
 
-    pub fn chunk_type(&mut self) -> RiffResult<FourCC> {
+    pub fn chunk_type(&self) -> RiffResult<FourCC> {
         let id = self.read_4_bytes_from_offset(8)?;
         let result = FourCC::new(&id);
         Ok(result)
     }
 
-    fn from_reader(reader: &RcReader, offset: u32) -> ChunkDisk {
+    fn with_mmap_and_offset(mmap: RcMmap, offset: u32) -> ChunkDisk {
         ChunkDisk {
-            pos: offset,
-            reader: reader.clone(),
+            offset,
+            reader: mmap,
         }
     }
 
@@ -73,57 +70,50 @@ impl ChunkDisk {
     where
         P: AsRef<Path>,
     {
-        let reader = Rc::new(RefCell::new(BufReader::new(File::open(&path)?)));
-        Ok(ChunkDisk { pos: 0, reader })
+        let reader = unsafe { Rc::new(Mmap::map(&File::open(&path)?)?) };
+        Ok(ChunkDisk { offset: 0, reader })
     }
 
-    fn read_4_bytes_from_offset(&mut self, offset: u32) -> RiffResult<[u8; 4]> {
-        let mut buffer = [0, 0, 0, 0];
-        let pos = (self.pos + offset) as u64;
-        let mut reader = self.reader.borrow_mut();
-        reader.seek(std::io::SeekFrom::Start(pos))?;
-        reader.read_exact(&mut buffer)?;
-        Ok(buffer)
+    fn read_4_bytes_from_offset(&self, offset: u32) -> RiffResult<&[u8; 4]> {
+        let pos = (self.offset + offset) as usize;
+        let reader = &self.reader[pos..pos + 4];
+        let arr_ref: &[u8; 4] = reader.try_into()?;
+        Ok(arr_ref)
     }
 
-    pub fn get_raw_child(&mut self) -> RiffResult<Vec<u8>> {
-        let pos = self.pos as u64;
+    pub fn get_raw_child(&self) -> RiffResult<&[u8]> {
+        let pos = self.offset as usize;
         let payload_len = self.payload_len()? as usize;
-        let offset = self.offset_into_data()? as u64;
-        let mut result = vec![0; payload_len];
-        let mut reader = self.reader.borrow_mut();
-        reader.seek(std::io::SeekFrom::Start(pos + offset))?;
-        reader.read_exact(&mut result)?;
-        Ok(result)
+        let offset = self.offset_into_data()?;
+        let begin_idx = pos + offset;
+        let end_idx = begin_idx + payload_len;
+        let reader = &self.reader[begin_idx..end_idx];
+        Ok(reader)
     }
 
-    fn offset_into_data(&mut self) -> RiffResult<usize> {
+    fn offset_into_data(&self) -> RiffResult<usize> {
         Ok(match self.id()?.as_bytes() {
             RIFF_ID | LIST_ID => 12,
             _ => 8,
         })
     }
 
-    pub fn iter(&mut self) -> RiffResult<ChunkDiskIter> {
+    pub fn iter(&self) -> RiffResult<ChunkDiskIter> {
         let result = match self.id()?.as_bytes() {
             LIST_ID | RIFF_ID => ChunkDiskIter {
-                cursor: self.pos + 12,
-                cursor_end: self.pos + 12 + self.payload_len()? - 4,
+                cursor: self.offset + 12,
+                cursor_end: self.offset + 12 + self.payload_len()? - 4,
                 reader: self.reader.clone(),
                 error_occurred: false,
             },
             _ => ChunkDiskIter {
-                cursor: self.pos + 8,
-                cursor_end: self.pos + 8 + self.payload_len()?,
+                cursor: self.offset + 8,
+                cursor_end: self.offset + 8 + self.payload_len()?,
                 reader: self.reader.clone(),
                 error_occurred: false,
             },
         };
         Ok(result)
-    }
-
-    pub fn get_reader(&self) -> RcReader {
-        self.reader.clone()
     }
 }
 
@@ -131,7 +121,7 @@ impl ChunkDisk {
 pub struct ChunkDiskIter {
     cursor: u32,
     cursor_end: u32,
-    reader: RcReader,
+    reader: RcMmap,
     error_occurred: bool,
 }
 
@@ -142,7 +132,7 @@ impl Iterator for ChunkDiskIter {
         if self.error_occurred || self.cursor >= self.cursor_end {
             None
         } else {
-            let mut chunk = ChunkDisk::from_reader(&self.reader, self.cursor);
+            let chunk = ChunkDisk::with_mmap_and_offset(self.reader.clone(), self.cursor);
             let payload = chunk.payload_len();
             match payload {
                 Ok(len) => {
