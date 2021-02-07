@@ -28,10 +28,10 @@ This also means that `RiffError` needs to be a LOT more robust.~~
 
 2. ~~Ability to dynamically construct RIFF files and write to the machine.~~
 
-3. A clean implementation of the lazy version.
+3. ~~A clean implementation of the lazy version.
 Because a type `T` that satisfy `Read + Seek` must be mutable to do anything.
 Getting this to work nicely is quite hard because only 1 mutable reference to `T` can exist at any one time.
-However, because we are recursively parsing through the file, it complains that it cannot infer the lifetime of `T`.
+However, because we are recursively parsing through the file, it complains that it cannot infer the lifetime of `T`.~~
 
 4. Unify the interface of the 2 versions under a trait.
 
