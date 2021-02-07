@@ -18,10 +18,8 @@ pub struct FourCC {
 ///
 /// ```rust
 /// use riffu::FourCC;
-/// let good = FourCC::new("1234");
-/// assert!(good.is_ok());
-/// let bad = FourCC::new("12345");
-/// assert!(bad.is_err());
+/// let good = FourCC::new(b"1234");
+/// // let bad = FourCC::new(b"12345"); // won't compile
 /// ```
 ///
 /// # NOTE

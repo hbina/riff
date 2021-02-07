@@ -15,7 +15,7 @@ use std::convert::TryFrom;
 /// # use riffu::eager::riff::RiffRam;
 /// # use riffu::error::RiffResult;
 /// # pub fn main() -> RiffResult<()>{
-/// let riff = RiffRam::from_file("test_assets/set_1.riff")?;
+/// let riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
 /// assert_eq!(riff.as_bytes(), vec![82, 73, 70, 70, 14, 0, 0, 0, 115, 109, 112, 108, 116, 101, 115, 116, 1, 0, 0, 0, 255, 0]);
 /// # Ok(())
 /// # }
@@ -32,7 +32,7 @@ impl<'a> TryFrom<&'a RiffRam> for ChunkRam<'a> {
 
     /// Performs the conversion.
     fn try_from(value: &'a RiffRam) -> RiffResult<Self> {
-        Ok(ChunkRam::from_raw_u8(&value.data)?)
+        Ok(ChunkRam::from_raw_u8(&value.data).unwrap())
     }
 }
 
@@ -46,8 +46,8 @@ impl RiffRam {
     /// ```rust
     /// # use riffu::{constants::RIFF_ID, error::RiffResult, eager::riff::RiffRam};
     /// # pub fn main() -> RiffResult<()> {
-    /// let riff = RiffRam::from_file("test_assets/set_1.riff")?;
-    /// assert_eq!(riff.id().as_bytes()?, RIFF_ID);
+    /// let riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
+    /// assert_eq!(riff.id().as_bytes(), RIFF_ID);
     /// # Ok(())
     /// # }
     /// ```
@@ -65,7 +65,7 @@ impl RiffRam {
     /// ```
     /// # use riffu::{constants::RIFF_ID, error::RiffResult, eager::riff::RiffRam};
     /// # pub fn main() -> RiffResult<()> {
-    /// let riff = RiffRam::from_file("test_assets/set_1.riff")?;
+    /// let riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
     /// assert_eq!(riff.payload_len(), 14);
     /// # Ok(())
     /// # }
@@ -86,13 +86,13 @@ impl RiffRam {
     /// ```
     /// # use riffu::{constants::RIFF_ID, error::RiffResult, eager::riff::RiffRam};
     /// # pub fn main() -> RiffResult<()> {
-    /// let riff = RiffRam::from_file("test_assets/set_1.riff")?;
-    /// assert_eq!(riff.iter()?.next()??.id().as_bytes()?, "test");
+    /// let riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
+    /// assert_eq!(riff.iter().unwrap().next().unwrap().unwrap().id().as_bytes(), b"test");
     /// # Ok(())
     /// # }
     /// ```
     pub fn iter(&self) -> RiffResult<ChunkRamIter> {
-        Ok(ChunkRam::try_from(self)?.iter())
+        Ok(ChunkRam::try_from(self).unwrap().iter())
     }
 
     /// Creates this struct from a file path.
@@ -102,7 +102,7 @@ impl RiffRam {
     /// ```
     /// # use riffu::{constants::RIFF_ID, error::RiffResult, eager::riff::RiffRam};
     /// # pub fn main() -> RiffResult<()> {
-    /// let riff = RiffRam::from_file("test_assets/set_1.riff")?;
+    /// let riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
     /// # Ok(())
     /// # }
     /// ```
@@ -111,7 +111,7 @@ impl RiffRam {
         T: Into<std::path::PathBuf>,
     {
         let path = path.into();
-        let data = std::fs::read(path)?;
+        let data = std::fs::read(path).unwrap();
         if data.len() >= 8 {
             let mut id_buff: [u8; 4] = [0; 4];
             id_buff.copy_from_slice(&data[0..4]);
@@ -133,7 +133,7 @@ impl RiffRam {
     /// ```
     /// # use riffu::{constants::RIFF_ID, error::RiffResult, eager::riff::RiffRam};
     /// # pub fn main() -> RiffResult<()> {
-    /// let riff = RiffRam::from_file("test_assets/set_1.riff")?;
+    /// let riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
     /// assert_eq!(riff.as_bytes(), &[82, 73, 70, 70, 14, 0, 0, 0, 115, 109, 112, 108, 116, 101, 115, 116, 1, 0, 0, 0, 255, 0]);
     /// # Ok(())
     /// # }
@@ -327,11 +327,12 @@ impl<'a> TryFrom<ChunkRam<'a>> for ChunkRamContent<'a> {
     fn try_from(chunk: ChunkRam<'a>) -> RiffResult<Self> {
         match chunk.id().as_bytes() {
             RIFF_ID | LIST_ID => {
-                let chunk_type = chunk.chunk_type()?;
+                let chunk_type = chunk.chunk_type().unwrap();
                 let child_contents = chunk
                     .iter()
-                    .map(|child| ChunkRamContent::try_from(child?))
-                    .collect::<RiffResult<Vec<_>>>()?;
+                    .map(|child| ChunkRamContent::try_from(child.unwrap()))
+                    .collect::<RiffResult<Vec<_>>>()
+                    .unwrap();
                 Ok(ChunkRamContent::Children(
                     chunk.id(),
                     chunk_type,
@@ -341,12 +342,13 @@ impl<'a> TryFrom<ChunkRam<'a>> for ChunkRamContent<'a> {
             SEQT_ID => {
                 let child_contents = chunk
                     .iter()
-                    .map(|child| ChunkRamContent::try_from(child?))
-                    .collect::<RiffResult<Vec<_>>>()?;
+                    .map(|child| ChunkRamContent::try_from(child.unwrap()))
+                    .collect::<RiffResult<Vec<_>>>()
+                    .unwrap();
                 Ok(ChunkRamContent::ChildrenNoType(chunk.id(), child_contents))
             }
             _ => {
-                let contents = chunk.get_raw_child()?;
+                let contents = chunk.get_raw_child().unwrap();
                 Ok(ChunkRamContent::RawData(chunk.id(), contents))
             }
         }

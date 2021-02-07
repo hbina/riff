@@ -15,7 +15,7 @@ use crate::{
 /// # use riffu::FourCC;
 ///
 /// pub fn main() -> RiffResult<()> {
-///     let chunk_2 = ChunkBuilder::new_notype(FourCC::new("test")?, ChunkData::RawData(vec![]));
+///     let chunk_2 = ChunkBuilder::new_notype(FourCC::new(b"test"), ChunkData::RawData(vec![]));
 ///     assert_eq!(chunk_2.payload_len, 0);
 ///     Ok(())
 /// }
@@ -142,16 +142,16 @@ impl ChunkBuilder {
 /// # use riffu::error::{RiffError, RiffResult};
 /// # use riffu::FourCC;
 /// pub fn main() -> RiffResult<()> {
-///     assert_eq!(RiffBuilder::new(FourCC::new("smpl")?).payload_len, 4);
+///     assert_eq!(RiffBuilder::new(FourCC::new(b"smpl")).payload_len, 4);
 ///     let chunk_1 = ChunkBuilder::new_type(
-///        FourCC::new("test")?,
-///        FourCC::new("test")?,
+///        FourCC::new(b"test"),
+///        FourCC::new(b"test"),
 ///        ChunkData::RawData(vec![]),
 ///    );
 ///     assert_eq!(chunk_1.payload_len, 4);
-///    let chunk_2 = ChunkBuilder::new_notype(FourCC::new("test")?, ChunkData::RawData(vec![]));
+///    let chunk_2 = ChunkBuilder::new_notype(FourCC::new(b"test"), ChunkData::RawData(vec![]));
 ///     assert_eq!(chunk_2.payload_len, 0);
-///     let built_riff = RiffBuilder::new(FourCC::new("smpl")?)
+///     let built_riff = RiffBuilder::new(FourCC::new(b"smpl"))
 ///         .add_chunk(chunk_1)
 ///         .add_chunk(chunk_2);
 ///     assert_eq!(built_riff.payload_len, 4 + (4 + 4 + 4) + (4 + 4));
