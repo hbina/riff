@@ -144,18 +144,17 @@ impl Iterator for ChunkDiskIter {
         } else {
             let mut chunk = ChunkDisk::from_reader(&self.reader, self.cursor);
             let payload = chunk.payload_len();
-            let result = match payload {
+            match payload {
                 Ok(len) => {
                     let chunk_size = 8 + len + (len % 2);
-                    self.cursor = self.cursor + chunk_size;
+                    self.cursor += chunk_size;
                     Some(Ok(chunk))
                 }
                 Err(err) => {
                     self.error_occurred = true;
                     Some(Err(err))
                 }
-            };
-            result
+            }
         }
     }
 }

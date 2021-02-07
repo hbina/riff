@@ -73,6 +73,6 @@ impl TryFrom<&str> for FourCC {
     /// let test : FourCC = "test".try_into().unwrap();
     /// ```
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(value.as_bytes().try_into()?)
+        value.as_bytes().try_into()
     }
 }
