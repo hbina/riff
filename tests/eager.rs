@@ -1,18 +1,18 @@
 extern crate riffu;
 
 use riffu::{
-    eager::riff::{ChunkRam, ChunkRamIter, RiffRam},
+    eager::riff::{ChunkInner, ChunkRamIter, Chunk},
     error::RiffResult,
 };
 use std::convert::TryFrom;
 
 #[test]
 fn test_set_1() {
-    let file = RiffRam::from_file("test_assets/set_1.riff").unwrap();
+    let file = Chunk::from_path("test_assets/set_1.riff").unwrap();
     assert_eq!(file.payload_len(), 14);
-    assert_eq!(ChunkRam::try_from(&file).unwrap().id().as_bytes(), b"RIFF");
+    assert_eq!(ChunkInner::try_from(&file).unwrap().id().as_bytes(), b"RIFF");
     assert_eq!(
-        ChunkRam::try_from(&file)
+        ChunkInner::try_from(&file)
             .unwrap()
             .chunk_type()
             .unwrap()
@@ -40,11 +40,11 @@ fn test_set_1() {
 
 #[test]
 fn test_set_2() {
-    let file = RiffRam::from_file("test_assets/set_2.riff").unwrap();
+    let file = Chunk::from_path("test_assets/set_2.riff").unwrap();
     assert_eq!(file.payload_len(), 24);
-    assert_eq!(ChunkRam::try_from(&file).unwrap().id().as_bytes(), b"RIFF");
+    assert_eq!(ChunkInner::try_from(&file).unwrap().id().as_bytes(), b"RIFF");
     assert_eq!(
-        ChunkRam::try_from(&file)
+        ChunkInner::try_from(&file)
             .unwrap()
             .chunk_type()
             .unwrap()
@@ -73,15 +73,15 @@ fn test_set_2() {
 
 #[test]
 fn test_set_3() {
-    let file = RiffRam::from_file("test_assets/set_3.riff").unwrap();
+    let file = Chunk::from_path("test_assets/set_3.riff").unwrap();
     {
         assert_eq!(file.payload_len(), 100);
         assert_eq!(
-            ChunkRam::try_from(&file).unwrap().id().as_bytes(),
+            ChunkInner::try_from(&file).unwrap().id().as_bytes(),
             riffu::constants::RIFF_ID
         );
         assert_eq!(
-            ChunkRam::try_from(&file)
+            ChunkInner::try_from(&file)
                 .unwrap()
                 .chunk_type()
                 .unwrap()
@@ -135,15 +135,15 @@ fn test_set_3() {
 
 #[test]
 fn test_set_4() {
-    let file = RiffRam::from_file("test_assets/set_4.riff").unwrap();
+    let file = Chunk::from_path("test_assets/set_4.riff").unwrap();
     {
         assert_eq!(file.payload_len(), 102);
         assert_eq!(
-            ChunkRam::try_from(&file).unwrap().id().as_bytes(),
+            ChunkInner::try_from(&file).unwrap().id().as_bytes(),
             riffu::constants::RIFF_ID
         );
         assert_eq!(
-            ChunkRam::try_from(&file)
+            ChunkInner::try_from(&file)
                 .unwrap()
                 .chunk_type()
                 .unwrap()
@@ -191,7 +191,7 @@ fn test_set_4() {
 
 #[test]
 fn test_chimes_wav() {
-    let file = RiffRam::from_file("test_assets/Chimes.wav").unwrap();
+    let file = Chunk::from_path("test_assets/Chimes.wav").unwrap();
     assert_eq!(b"RIFF", file.id().as_bytes());
     assert_eq!(15924, file.payload_len());
     let expected = vec![(b"fmt ", 16), (b"fact", 4), (b"data", 15876)];
@@ -204,7 +204,7 @@ fn test_chimes_wav() {
 
 #[test]
 fn test_canimate_avi() {
-    let file = RiffRam::from_file("test_assets/Canimate.avi").unwrap();
+    let file = Chunk::from_path("test_assets/Canimate.avi").unwrap();
     assert_eq!(b"RIFF", file.id().as_bytes());
     assert_eq!(91952, file.payload_len());
     let expected = vec![

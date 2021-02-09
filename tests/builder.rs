@@ -3,7 +3,7 @@ extern crate riffu;
 use riffu::constants::LIST_ID;
 use riffu::{
     builder::riff::{ChunkBuilder, ChunkData, RiffBuilder},
-    eager::riff::RiffRam,
+    eager::riff::Chunk,
     FourCC,
 };
 
@@ -27,7 +27,7 @@ pub fn test_size() {
 
 #[test]
 pub fn test_set_1() {
-    let read_riff = RiffRam::from_file("test_assets/set_1.riff").unwrap();
+    let read_riff = Chunk::from_path("test_assets/set_1.riff").unwrap();
     let built_riff = RiffBuilder::new(FourCC::new(b"smpl")).add_chunk(ChunkBuilder::new_notype(
         FourCC::new(b"test"),
         ChunkData::RawData(vec![255]),
@@ -37,7 +37,7 @@ pub fn test_set_1() {
 
 #[test]
 pub fn test_set_2() {
-    let read_riff = RiffRam::from_file("test_assets/set_2.riff").unwrap();
+    let read_riff = Chunk::from_path("test_assets/set_2.riff").unwrap();
     let built_riff = RiffBuilder::new(FourCC::new(b"smpl"))
         .add_chunk(ChunkBuilder::new_notype(
             FourCC::new(b"tst1"),
@@ -52,7 +52,7 @@ pub fn test_set_2() {
 
 #[test]
 pub fn test_set_3() {
-    let read_riff = RiffRam::from_file("test_assets/set_3.riff").unwrap();
+    let read_riff = Chunk::from_path("test_assets/set_3.riff").unwrap();
     let built_riff = RiffBuilder::new(FourCC::new(b"smpl"))
         .add_chunk(ChunkBuilder::new_type(
             FourCC::new(LIST_ID),

@@ -2,12 +2,12 @@ extern crate riffu;
 
 use riffu::{
     constants::{LIST_ID, RIFF_ID},
-    lazy::riff::ChunkDisk,
+    lazy::riff::Chunk,
 };
 
 #[test]
 fn test_set_1() {
-    let chunk_root = ChunkDisk::from_path("test_assets/set_1.riff").unwrap();
+    let chunk_root = Chunk::from_path("test_assets/set_1.riff").unwrap();
     assert_eq!(chunk_root.payload_len().unwrap(), 14);
     assert_eq!(chunk_root.id().unwrap().as_bytes(), b"RIFF");
     assert_eq!(chunk_root.chunk_type().unwrap().as_bytes(), b"smpl");
@@ -24,7 +24,7 @@ fn test_set_1() {
 
 #[test]
 fn test_set_2() {
-    let chunk_root = ChunkDisk::from_path("test_assets/set_2.riff").unwrap();
+    let chunk_root = Chunk::from_path("test_assets/set_2.riff").unwrap();
     assert_eq!(chunk_root.payload_len().unwrap(), 24);
     assert_eq!(chunk_root.id().unwrap().as_bytes(), b"RIFF");
     assert_eq!(chunk_root.chunk_type().unwrap().as_bytes(), b"smpl");
@@ -40,7 +40,7 @@ fn test_set_2() {
 
 #[test]
 fn test_set_3() {
-    let chunk_root = ChunkDisk::from_path("test_assets/set_3.riff").unwrap();
+    let chunk_root = Chunk::from_path("test_assets/set_3.riff").unwrap();
     {
         assert_eq!(chunk_root.payload_len().unwrap(), 100);
         assert_eq!(
@@ -104,7 +104,7 @@ fn test_set_3() {
 
 #[test]
 fn test_set_4() {
-    let chunk_root = ChunkDisk::from_path("test_assets/set_4.riff").unwrap();
+    let chunk_root = Chunk::from_path("test_assets/set_4.riff").unwrap();
     {
         assert_eq!(chunk_root.payload_len().unwrap(), 102);
         assert_eq!(chunk_root.id().unwrap().as_bytes(), RIFF_ID);

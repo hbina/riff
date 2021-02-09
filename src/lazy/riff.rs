@@ -13,13 +13,13 @@ type RcMmap = std::rc::Rc<Mmap>;
 /// Represents the possible data contained in a `ChunkDisk`.
 #[derive(Debug)]
 pub enum ChunkDiskType {
-    RawData(ChunkDisk),
-    Children(ChunkDisk),
-    ChildrenNoType(ChunkDisk),
+    RawData(Chunk),
+    Children(Chunk),
+    ChildrenNoType(Chunk),
 }
 
 impl ChunkDiskType {
-    pub fn from_chunk_disk(chunk: ChunkDisk) -> RiffResult<ChunkDiskType> {
+    pub fn from_chunk_disk(chunk: Chunk) -> RiffResult<ChunkDiskType> {
         let chunk_id = chunk.id()?;
         let result = match chunk_id.as_bytes() {
             RIFF_ID | LIST_ID => ChunkDiskType::Children(chunk),
@@ -35,12 +35,12 @@ impl ChunkDiskType {
 
 /// Represents a lazy reader of a chunk in a RIFF file.
 #[derive(Debug)]
-pub struct ChunkDisk {
+pub struct Chunk {
     offset: u32,
     reader: RcMmap,
 }
 
-impl ChunkDisk {
+impl Chunk {
     pub fn id(&self) -> RiffResult<FourCC> {
         let id = self.read_4_bytes_from_offset(0)?;
         let result = FourCC::new(&id);
@@ -59,19 +59,19 @@ impl ChunkDisk {
         Ok(result)
     }
 
-    fn with_mmap_and_offset(mmap: RcMmap, offset: u32) -> ChunkDisk {
-        ChunkDisk {
+    fn with_mmap_and_offset(mmap: RcMmap, offset: u32) -> Chunk {
+        Chunk {
             offset,
             reader: mmap,
         }
     }
 
-    pub fn from_path<P>(path: P) -> RiffResult<ChunkDisk>
+    pub fn from_path<P>(path: P) -> RiffResult<Chunk>
     where
         P: AsRef<Path>,
     {
         let reader = unsafe { Rc::new(Mmap::map(&File::open(&path)?)?) };
-        Ok(ChunkDisk { offset: 0, reader })
+        Ok(Chunk { offset: 0, reader })
     }
 
     fn read_4_bytes_from_offset(&self, offset: u32) -> RiffResult<&[u8; 4]> {
@@ -126,13 +126,13 @@ pub struct ChunkDiskIter {
 }
 
 impl Iterator for ChunkDiskIter {
-    type Item = RiffResult<ChunkDisk>;
+    type Item = RiffResult<Chunk>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.error_occurred || self.cursor >= self.cursor_end {
             None
         } else {
-            let chunk = ChunkDisk::with_mmap_and_offset(self.reader.clone(), self.cursor);
+            let chunk = Chunk::with_mmap_and_offset(self.reader.clone(), self.cursor);
             let payload = chunk.payload_len();
             match payload {
                 Ok(len) => {

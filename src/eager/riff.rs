@@ -4,7 +4,7 @@ use crate::{
     error::RiffResult,
     FourCC,
 };
-use std::convert::TryFrom;
+use std::{convert::TryFrom, path::Path};
 
 /// An eager representation of a RIFF file.
 /// This struct will read the entire file and load it into resident memory.
@@ -22,22 +22,22 @@ use std::convert::TryFrom;
 /// ```
 #[allow(dead_code)]
 #[derive(Debug)]
-pub struct RiffRam {
+pub struct Chunk {
     pub(crate) data: Vec<u8>,
 }
 
 /// `RiffRam` can be converted to a `ChunkRam`.
-impl<'a> TryFrom<&'a RiffRam> for ChunkRam<'a> {
+impl<'a> TryFrom<&'a Chunk> for ChunkInner<'a> {
     type Error = RiffError;
 
     /// Performs the conversion.
-    fn try_from(value: &'a RiffRam) -> RiffResult<Self> {
-        Ok(ChunkRam::from_raw_u8(&value.data).unwrap())
+    fn try_from(value: &'a Chunk) -> RiffResult<Self> {
+        Ok(ChunkInner::from_raw_u8(&value.data).unwrap())
     }
 }
 
 #[allow(dead_code)]
-impl RiffRam {
+impl Chunk {
     /// Returns the ASCII idientifier of the RIFF file.
     /// It _should_ only return the character `RIFF` and nothing else.
     ///
@@ -92,7 +92,7 @@ impl RiffRam {
     /// # }
     /// ```
     pub fn iter(&self) -> RiffResult<ChunkRamIter> {
-        Ok(ChunkRam::try_from(self).unwrap().iter())
+        Ok(ChunkInner::try_from(self).unwrap().iter())
     }
 
     /// Creates this struct from a file path.
@@ -106,18 +106,17 @@ impl RiffRam {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_file<T>(path: T) -> RiffResult<Self>
+    pub fn from_path<P>(path: P) -> RiffResult<Self>
     where
-        T: Into<std::path::PathBuf>,
+        P: AsRef<Path>,
     {
-        let path = path.into();
         let data = std::fs::read(path).unwrap();
         if data.len() >= 8 {
             let mut id_buff: [u8; 4] = [0; 4];
             id_buff.copy_from_slice(&data[0..4]);
             let id = FourCC { data: id_buff };
             if id.as_bytes() == RIFF_ID {
-                Ok(RiffRam { data })
+                Ok(Chunk { data })
             } else {
                 Err(RiffError::InvalidRiffHeader)
             }
@@ -147,12 +146,12 @@ impl RiffRam {
 /// To create a lazy version, please see the `ChunkRam` created by `RiffDisk`.
 /// Note that this is an opaque type, to obtain its content, one must convert it into a `ChunkRamContent`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ChunkRam<'a> {
+pub struct ChunkInner<'a> {
     data: &'a [u8],
 }
 
 /// Implementation of `ChunkRam`.
-impl<'a> ChunkRam<'a> {
+impl<'a> ChunkInner<'a> {
     /// Returns the ASCII identifier.
     pub fn id(&self) -> FourCC {
         let mut buff: [u8; 4] = [0; 4];
@@ -172,9 +171,9 @@ impl<'a> ChunkRam<'a> {
     }
 
     /// Creates a `ChunkRam` from raw array of bytes.
-    pub fn from_raw_u8(data: &[u8]) -> RiffResult<ChunkRam> {
+    pub fn from_raw_u8(data: &[u8]) -> RiffResult<ChunkInner> {
         if data.len() >= 8 {
-            let chunk = ChunkRam { data: &data };
+            let chunk = ChunkInner { data: &data };
             // Guarantee that the data given is able to satisfy the payload length provided.
             if data.len() == chunk.payload_len() as usize + 8 {
                 Ok(chunk)
@@ -266,7 +265,7 @@ pub struct ChunkRamIter<'a> {
 
 /// Implementation of `ChunkRamIter`.
 impl<'a> Iterator for ChunkRamIter<'a> {
-    type Item = RiffResult<ChunkRam<'a>>;
+    type Item = RiffResult<ChunkInner<'a>>;
 
     /// Get the next `ChunkRam` if it exists.
     fn next(&mut self) -> Option<Self::Item> {
@@ -278,7 +277,8 @@ impl<'a> Iterator for ChunkRamIter<'a> {
                 Ok(payload_len) => {
                     let payload_len = payload_len as usize;
                     if self.data.len() >= cursor + 8 + payload_len {
-                        match ChunkRam::from_raw_u8(&self.data[cursor..cursor + 8 + payload_len]) {
+                        match ChunkInner::from_raw_u8(&self.data[cursor..cursor + 8 + payload_len])
+                        {
                             Ok(chunk) => {
                                 self.cursor = self.cursor
                                     + 8
@@ -320,11 +320,11 @@ pub enum ChunkRamContent<'a> {
 }
 
 /// Since `ChunkRam` is an opaque type. The only way to obtain the `ChunkRam`'s contents is through this trait.
-impl<'a> TryFrom<ChunkRam<'a>> for ChunkRamContent<'a> {
+impl<'a> TryFrom<ChunkInner<'a>> for ChunkRamContent<'a> {
     type Error = RiffError;
 
     /// Performs the conversion.
-    fn try_from(chunk: ChunkRam<'a>) -> RiffResult<Self> {
+    fn try_from(chunk: ChunkInner<'a>) -> RiffResult<Self> {
         match chunk.id().as_bytes() {
             RIFF_ID | LIST_ID => {
                 let chunk_type = chunk.chunk_type().unwrap();
