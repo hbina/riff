@@ -1,6 +1,6 @@
 [package]
 name = "riffu"
-version = "3.0.0"
+version = "4.0.0"
 authors = ["Francesco Bertolaccini <francesco@bertolaccini.dev>", "Hanif Bin Ariffin <hanif.ariffin.4326@gmail.com>"]
 description = """"
 This crate provides utilities for reading and writing RIFF formatted files.
@@ -16,7 +16,7 @@ travis-ci = { repository = "hbina/riffu" }
 codecov = { repository = "hbina/riffu" }
 
 [dev-dependencies]
-criterion = "0.3.3"
+criterion = "0.3.4"
 
 [[bench]]
 name = "my_benchmark"
