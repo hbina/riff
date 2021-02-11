@@ -43,7 +43,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn id(&self) -> RiffResult<FourCC> {
         let id = self.read_4_bytes_from_offset(0)?;
-        let result = FourCC::new(&id);
+        let result = FourCC::new(id)?;
         Ok(result)
     }
 
@@ -55,7 +55,7 @@ impl Chunk {
 
     pub fn chunk_type(&self) -> RiffResult<FourCC> {
         let id = self.read_4_bytes_from_offset(8)?;
-        let result = FourCC::new(&id);
+        let result = FourCC::new(id)?;
         Ok(result)
     }
 
