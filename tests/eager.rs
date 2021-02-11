@@ -5,7 +5,7 @@ use riffu::{error::RiffResult, Riff};
 #[test]
 fn test_set_1() -> RiffResult<()> {
     let file = Riff::from_path("test_assets/set_1.riff").unwrap();
-    let chunk = dbg!(file.as_chunk().unwrap());
+    let chunk = file.as_chunk().unwrap();
     assert_eq!(chunk.payload_len().unwrap(), 14);
     assert_eq!(chunk.id().unwrap().as_bytes(), b"RIFF");
     assert_eq!(chunk.chunk_type().unwrap().as_bytes(), b"smpl");
@@ -63,10 +63,7 @@ fn test_set_3() -> RiffResult<()> {
         {
             let test = list_1.iter().unwrap().next().unwrap().unwrap();
             assert_eq!(test.id().unwrap().as_bytes(), b"test");
-            assert_eq!(
-                test.content().unwrap(),
-                "hey this is a test".as_bytes()
-            );
+            assert_eq!(test.content().unwrap(), "hey this is a test".as_bytes());
         }
         {
             let test = list_1.iter().unwrap().skip(1).next().unwrap().unwrap();

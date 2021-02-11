@@ -1,5 +1,5 @@
 use crate::{
-    constants::{LIST_ID, RIFF_ID, SEQT_ID},
+    constants::{LIST_ID, RIFF_ID, SEQT_ID_LOWERCASE, SEQT_ID_UPPERCASE},
     error::RiffResult,
     FourCC, RiffError,
 };
@@ -48,7 +48,7 @@ impl<'a> Chunk<'a> {
             .ok_or(RiffError::InsufficientBytes)?;
         match id {
             LIST_ID | RIFF_ID => Ok(Chunk::List(data)),
-            SEQT_ID => Ok(Chunk::Seqt(data)),
+            SEQT_ID_LOWERCASE | SEQT_ID_UPPERCASE => Ok(Chunk::Seqt(data)),
             _ => Ok(Chunk::Raw(data)),
         }
     }
@@ -82,8 +82,9 @@ impl<'a> Chunk<'a> {
     }
 
     pub fn content(&self) -> RiffResult<&[u8]> {
+        let offset = self.content_offset();
         let len = self.payload_len()?;
-        self.read_n_bytes_from_offset(0, len)
+        self.read_n_bytes_from_offset(offset, len)
     }
 
     pub fn content_offset(&self) -> u32 {
@@ -114,7 +115,7 @@ impl<'a> Chunk<'a> {
             }),
             _ => Ok(ChunkIter {
                 cursor: offset,
-                cursor_end: cursor_end,
+                cursor_end,
                 data: self.as_bytes(),
                 error_occurred: false,
             }),
@@ -163,7 +164,7 @@ impl<'a> Iterator for ChunkIter<'a> {
             let data = try_option!(self, self.data.get(cursor..cursor_end));
             let chunk = try_result!(self, Chunk::from_bytes(data));
             let payload_len = try_result!(self, chunk.payload_len());
-            self.cursor += payload_len + payload_len % 2;
+            self.cursor += 8 + payload_len + payload_len % 2;
             Some(Ok(chunk))
         }
     }
